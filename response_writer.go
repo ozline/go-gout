@@ -16,7 +16,6 @@ const (
 	defaultStatus = http.StatusOK
 )
 
-// ResponseWriter ...
 type ResponseWriter interface {
 	http.ResponseWriter
 	http.Hijacker

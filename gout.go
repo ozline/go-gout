@@ -1,11 +1,13 @@
 package gout
 
 import (
+	"html/template"
 	"net/http"
 	"path"
 	"sync"
 
 	bytesconv "github.com/ozline/go-gout/internal"
+	"github.com/ozline/go-gout/render"
 )
 
 const defaultMultipartMemory = 32 << 20 // 32 MB
@@ -27,24 +29,24 @@ type Engine struct {
 	RedirectTrailingSlash  bool
 	RedirectFixedPath      bool
 	HandleMethodNotAllowed bool
-	// ForwardedByClientIP    bool
-	AppEngine          bool
-	UseRawPath         bool
-	UnescapePathValues bool
-	RemoveExtraSlash   bool
-	RemoteIPHeaders    []string
-	TrustedPlatform    string
-	MaxMultipartMemory int64
+	ForwardedByClientIP    bool
+	AppEngine              bool
+	UseRawPath             bool
+	UnescapePathValues     bool
+	RemoveExtraSlash       bool
+	RemoteIPHeaders        []string
+	TrustedPlatform        string
+	MaxMultipartMemory     int64
 	// UseH2C                 bool
 	// ContextWithFallback    bool
 
-	// delims render.Delims
+	delims render.Delims
 	// HTMLRender       render.HTMLRender
-	// FuncMap          template.FuncMap
+	FuncMap     template.FuncMap
 	allNoRoute  HandlersChain
 	allNoMethod HandlersChain
-	// noRoute          HandlersChain
-	// noMethod         HandlersChain
+	// noRoute     HandlersChain
+	// noMethod    HandlersChain
 	pool        sync.Pool
 	trees       methodTrees
 	maxParams   uint16
@@ -132,24 +134,34 @@ func New() *Engine {
 			basePath: "/",
 			root:     true,
 		},
-		// FuncMap:                template.FuncMap{},
+		FuncMap:                template.FuncMap{},
 		RedirectTrailingSlash:  true,
 		RedirectFixedPath:      false,
 		HandleMethodNotAllowed: false,
-		// ForwardedByClientIP:    true,
-		RemoteIPHeaders: []string{"X-Forwarded-For", "X-Real-IP"},
+		ForwardedByClientIP:    true,
+		RemoteIPHeaders:        []string{"X-Forwarded-For", "X-Real-IP"},
 		// TrustedPlatform:        defaultPlatform,
 		UseRawPath:         false,
 		RemoveExtraSlash:   false,
 		UnescapePathValues: true,
 		MaxMultipartMemory: defaultMultipartMemory,
 		trees:              make(methodTrees, 0, 9),
-		// delims:             render.Delims{Left: "{{", Right: "}}"},
+		delims:             render.Delims{Left: "{{", Right: "}}"},
 	}
 
 	engine.RouterGroup.engine = engine
 
+	engine.pool.New = func() interface{} {
+		return engine.allocateContext()
+	}
+
 	return engine
+}
+
+func (engine *Engine) allocateContext() *Context {
+	v := make(Params, 0, engine.maxParams)
+	skippedNodes := make([]skippedNode, 0, engine.maxSections)
+	return &Context{engine: engine, params: &v, skippedNodes: &skippedNodes}
 }
 
 func Default() *Engine {
