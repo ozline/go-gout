@@ -8,6 +8,8 @@ import (
 	bytesconv "github.com/ozline/go-gout/internal"
 )
 
+const defaultMultipartMemory = 32 << 20 // 32 MB
+
 var (
 	default404Body = []byte("404 page not found")
 	default405Body = []byte("405 method not allowed")
@@ -26,18 +28,17 @@ type Engine struct {
 	RedirectFixedPath      bool
 	HandleMethodNotAllowed bool
 	// ForwardedByClientIP    bool
-	// AppEngine              bool
+	AppEngine          bool
 	UseRawPath         bool
 	UnescapePathValues bool
 	RemoveExtraSlash   bool
-	// RemoteIPHeaders        []string
-	// TrustedPlatform        string
-	// MaxMultipartMemory     int64
+	RemoteIPHeaders    []string
+	TrustedPlatform    string
+	MaxMultipartMemory int64
 	// UseH2C                 bool
 	// ContextWithFallback    bool
 
-	// delims           render.Delims
-	// secureJSONPrefix string
+	// delims render.Delims
 	// HTMLRender       render.HTMLRender
 	// FuncMap          template.FuncMap
 	allNoRoute  HandlersChain
@@ -48,8 +49,6 @@ type Engine struct {
 	trees       methodTrees
 	maxParams   uint16
 	maxSections uint16
-	// trustedProxies   []string
-	// trustedCIDRs     []*net.IPNet
 }
 
 func (engine *Engine) Handler() http.Handler {
@@ -57,7 +56,7 @@ func (engine *Engine) Handler() http.Handler {
 }
 
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	c := engine.pool.Get().(*Context)
+	c := engine.pool.Get().(*Context) //取出来是nil?
 	c.writermem.reset(w)
 	c.Request = req
 	c.reset()
@@ -133,6 +132,19 @@ func New() *Engine {
 			basePath: "/",
 			root:     true,
 		},
+		// FuncMap:                template.FuncMap{},
+		RedirectTrailingSlash:  true,
+		RedirectFixedPath:      false,
+		HandleMethodNotAllowed: false,
+		// ForwardedByClientIP:    true,
+		RemoteIPHeaders: []string{"X-Forwarded-For", "X-Real-IP"},
+		// TrustedPlatform:        defaultPlatform,
+		UseRawPath:         false,
+		RemoveExtraSlash:   false,
+		UnescapePathValues: true,
+		MaxMultipartMemory: defaultMultipartMemory,
+		trees:              make(methodTrees, 0, 9),
+		// delims:             render.Delims{Left: "{{", Right: "}}"},
 	}
 
 	engine.RouterGroup.engine = engine
