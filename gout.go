@@ -13,13 +13,6 @@ var (
 	default405Body = []byte("405 method not allowed")
 )
 
-type RouterGroup struct {
-	// Handlers HandlersChain
-	basePath string
-	engine   *Engine
-	root     bool
-}
-
 // HandlerFunc defines the handler used by gin middleware as return value.
 type HandlerFunc func(*Context)
 
@@ -51,10 +44,10 @@ type Engine struct {
 	allNoMethod HandlersChain
 	// noRoute          HandlersChain
 	// noMethod         HandlersChain
-	pool  sync.Pool
-	trees methodTrees
-	// maxParams        uint16
-	// maxSections      uint16
+	pool        sync.Pool
+	trees       methodTrees
+	maxParams   uint16
+	maxSections uint16
 	// trustedProxies   []string
 	// trustedCIDRs     []*net.IPNet
 }
@@ -219,4 +212,29 @@ func serveError(c *Context, code int, defaultMessage []byte) {
 		return
 	}
 	c.writermem.WriteHeaderNow()
+}
+
+func (engine *Engine) addRoute(method, path string, handlers HandlersChain) {
+	assert1(path[0] == '/', "path must begin with '/'")
+	assert1(method != "", "HTTP method can not be empty")
+	assert1(len(handlers) > 0, "there must be at least one handler")
+
+	// debugPrintRoute(method, path, handlers)
+
+	root := engine.trees.get(method)
+	if root == nil {
+		root = new(node)
+		root.fullPath = "/"
+		engine.trees = append(engine.trees, methodTree{method: method, root: root})
+	}
+	root.addRoute(path, handlers)
+
+	// Update maxParams
+	if paramsCount := countParams(path); paramsCount > engine.maxParams {
+		engine.maxParams = paramsCount
+	}
+
+	if sectionsCount := countSections(path); sectionsCount > engine.maxSections {
+		engine.maxSections = sectionsCount
+	}
 }

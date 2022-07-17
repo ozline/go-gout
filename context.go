@@ -1,9 +1,11 @@
 package gout
 
 import (
+	"math"
 	"net/http"
 
 	"github.com/ozline/go-gout/binding"
+	"github.com/ozline/go-gout/render"
 )
 
 // Content-Type MIME of the most common data formats.
@@ -19,6 +21,8 @@ const (
 // MIMEYAML              = binding.MIMEYAML
 // MIMETOML              = binding.MIMETOML
 )
+
+const abortIndex int8 = math.MaxInt8 >> 1 //最大int/2
 
 type Context struct {
 	writermem responseWriter
@@ -70,5 +74,42 @@ func (c *Context) Next() {
 	for c.index < int8(len(c.handlers)) {
 		c.handlers[c.index](c)
 		c.index++
+	}
+}
+
+// Status sets the HTTP response code.
+func (c *Context) Status(code int) {
+	c.Writer.WriteHeader(code)
+}
+
+func (c *Context) JSON(code int, obj interface{}) {
+	c.Render(code, render.JSON{Data: obj})
+}
+
+// bodyAllowedForStatus is a copy of http.bodyAllowedForStatus non-exported function.
+func bodyAllowedForStatus(status int) bool {
+	switch {
+	case status >= 100 && status <= 199:
+		return false
+	case status == http.StatusNoContent:
+		return false
+	case status == http.StatusNotModified:
+		return false
+	}
+	return true
+}
+
+// Render writes the response headers and calls render.Render to render data.
+func (c *Context) Render(code int, r render.Render) {
+	c.Status(code)
+
+	if !bodyAllowedForStatus(code) {
+		r.WriteContentType(c.Writer)
+		c.Writer.WriteHeaderNow()
+		return
+	}
+
+	if err := r.Render(c.Writer); err != nil {
+		panic(err)
 	}
 }
