@@ -131,6 +131,7 @@ func (engine *Engine) handleHTTPRequest(c *Context) {
 func New() *Engine {
 	engine := &Engine{
 		RouterGroup: RouterGroup{
+			Handlers: nil,
 			basePath: "/",
 			root:     true,
 		},
