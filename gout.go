@@ -30,27 +30,19 @@ type Engine struct {
 	RedirectFixedPath      bool
 	HandleMethodNotAllowed bool
 	ForwardedByClientIP    bool
-	AppEngine              bool
 	UseRawPath             bool
 	UnescapePathValues     bool
 	RemoveExtraSlash       bool
 	RemoteIPHeaders        []string
-	TrustedPlatform        string
 	MaxMultipartMemory     int64
-	// UseH2C                 bool
-	// ContextWithFallback    bool
-
-	delims render.Delims
-	// HTMLRender       render.HTMLRender
-	FuncMap     template.FuncMap
-	allNoRoute  HandlersChain
-	allNoMethod HandlersChain
-	// noRoute     HandlersChain
-	// noMethod    HandlersChain
-	pool        sync.Pool
-	trees       methodTrees
-	maxParams   uint16
-	maxSections uint16
+	delims                 render.Delims
+	FuncMap                template.FuncMap
+	allNoRoute             HandlersChain
+	allNoMethod            HandlersChain
+	pool                   sync.Pool
+	trees                  methodTrees
+	maxParams              uint16
+	maxSections            uint16
 }
 
 func (engine *Engine) Handler() http.Handler {
@@ -58,14 +50,14 @@ func (engine *Engine) Handler() http.Handler {
 }
 
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	c := engine.pool.Get().(*Context) //取出来是nil?
+	c := engine.pool.Get().(*Context) //从内存池中取出一块内存
 	c.writermem.reset(w)
 	c.Request = req
 	c.reset()
 
 	engine.handleHTTPRequest(c)
 
-	engine.pool.Put(c)
+	engine.pool.Put(c) //返还内存
 }
 
 func (engine *Engine) handleHTTPRequest(c *Context) {
@@ -141,13 +133,12 @@ func New() *Engine {
 		HandleMethodNotAllowed: false,
 		ForwardedByClientIP:    true,
 		RemoteIPHeaders:        []string{"X-Forwarded-For", "X-Real-IP"},
-		// TrustedPlatform:        defaultPlatform,
-		UseRawPath:         false,
-		RemoveExtraSlash:   false,
-		UnescapePathValues: true,
-		MaxMultipartMemory: defaultMultipartMemory,
-		trees:              make(methodTrees, 0, 9),
-		delims:             render.Delims{Left: "{{", Right: "}}"},
+		UseRawPath:             false,
+		RemoveExtraSlash:       false,
+		UnescapePathValues:     true,
+		MaxMultipartMemory:     defaultMultipartMemory,
+		trees:                  make(methodTrees, 0, 9),
+		delims:                 render.Delims{Left: "{{", Right: "}}"},
 	}
 
 	engine.RouterGroup.engine = engine
